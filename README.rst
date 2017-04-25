@@ -108,7 +108,7 @@ Creating a simple bot
                                                        'ssl/cert.pem')
         # If want use reverse proxy, then replace listenSSL on listenTCP.
         reactor.listenSSL(443, web_hook(bot.token), ssl_context)
-        reactor.run
+        reactor.run()
 
 
     if __name__ == '__main__':
@@ -151,7 +151,7 @@ If you want to use polling mode, you can do it like that:
         log.startLogging(sys.stdout)
         reactor.listenTCP(8080,  Site(Resource()))
         polling(bot, interval=10)
-        reactor.run
+        reactor.run()
 
 
     if __name__ == '__main__':
