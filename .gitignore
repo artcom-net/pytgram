@@ -5,4 +5,3 @@ venv/
 pytgram.egg-info/
 tests/config.txt
 *.pyc
-main.py
