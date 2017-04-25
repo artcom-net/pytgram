@@ -37,9 +37,9 @@ You may need to install additional packages, depending on your operating system:
 
 - Windows:
 
-    1. `VS Build Tools <http://landinghub.visualstudio.com/visual-cpp-build-tools>`_:
+    - `VS Build Tools <http://landinghub.visualstudio.com/visual-cpp-build-tools>`_
 
-    2. `Windows Extension for Python <https://sourceforge.net/projects/pywin32/files/pywin32/Build%20220/>`_:
+    - `Windows Extension for Python <https://sourceforge.net/projects/pywin32/files/pywin32/Build%20220/>`_
 
 You can install pytgram using pip:
 
