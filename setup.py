@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='pytgram',
-    version='0.0.1',
+    version='0.0.2',
     packages=['pytgram', 'tests'],
     url='https://github.com/artcom-net/pytgram',
     license='MIT',

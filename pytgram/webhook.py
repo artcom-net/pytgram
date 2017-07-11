@@ -1,7 +1,7 @@
 """webHook module.
 
-This module contains the entities which organize web resource to receive 
-updates from Telegram API, and helpers function to control webHook parameters. 
+This module contains the entities which organize web resource to receive
+updates from Telegram API, and helpers function to control webHook parameters.
 To create the Site object, use the web_hook function.
 
 """
@@ -16,18 +16,21 @@ from twisted.web.server import NOT_DONE_YET, Site
 
 from .url import get_url
 from .api import MessageHandler
-from .content import Message, InlineQuery, CallbackQuery, ChosenInlineResult
+from .content import (
+    Message, InlineQuery, CallbackQuery, ChosenInlineResult, ShippingQuery,
+    PreCheckoutQuery
+)
 
 
 def web_hook(path, handler=None):
     """Creates site for webhook mode.
-    
+
     :param path: webhook path.
-    :param handler: Function. If uses, then MessageHandler decorator 
-        will not be works. It's need if you want handling all messages in one 
+    :param handler: Function. If uses, then MessageHandler decorator
+        will not be works. It's need if you want handling all messages in one
         function.
     :return: Site.
-    
+
     """
     root = _RootResource()
     bot_resource = _BotResource(handler)
@@ -42,18 +45,18 @@ def web_hook(path, handler=None):
 
 def set_webhook(token, web_hook_url, certificate=None, max_connections=None,
                 allowed_updates=None, ):
-    """Use this method to specify a url and receive incoming updates via an 
+    """Use this method to specify a url and receive incoming updates via an
     outgoing webHook.
 
     :param token: Bot token,
-    :param web_hook_url: HTTPS url to send updates to. Use an empty string to 
+    :param web_hook_url: HTTPS url to send updates to. Use an empty string to
         remove webHook integration.
-    :param certificate: Upload your public key certificate so that the root 
+    :param certificate: Upload your public key certificate so that the root
         certificate in use can be checked.
-    :param max_connections: Maximum allowed number of simultaneous HTTPS 
+    :param max_connections: Maximum allowed number of simultaneous HTTPS
         connections to the webHook for update delivery, 1-100. Defaults to 40.
-    :param allowed_updates: List the types of updates you want your bot to 
-        receive. For example, specify ['message', 'edited_channel_post', 
+    :param allowed_updates: List the types of updates you want your bot to
+        receive. For example, specify ['message', 'edited_channel_post',
         'callback_query'] to only receive updates of these types.
     :return: dict.
 
@@ -67,10 +70,10 @@ def set_webhook(token, web_hook_url, certificate=None, max_connections=None,
 
 
 def delete_webhook(token):
-    """Use this method to remove webHook integration if you decide to switch 
+    """Use this method to remove webHook integration if you decide to switch
     back to get_updates.
 
-    :param token: Bor token. 
+    :param token: Bor token.
     :return: dict.
 
     """
@@ -130,25 +133,27 @@ class _BotResource(Resource):
         'edited_message': Message,
         'inline_query': InlineQuery,
         'callback_query': CallbackQuery,
-        'chosen_inline_result': ChosenInlineResult
+        'chosen_inline_result': ChosenInlineResult,
+        'shipping_query': ShippingQuery,
+        'pre_checkout_query': PreCheckoutQuery
     }
 
     def __init__(self, handler=None):
         """Initial instance.
-        
+
         :param handler: Function.
-        
+
         """
         super(_BotResource, self).__init__()
         self._handler = handler or MessageHandler.handler
 
     def render_POST(self, request):
         """Receives requests.
-        
+
         :param request: Request instance.
-        :return: Requests are processed asynchronously so this method should 
+        :return: Requests are processed asynchronously so this method should
             return NOT_DONE_YET.
-        
+
         """
         deferred = task.deferLater(reactor, 0.1, self._request_handler,
                                    request)
@@ -159,10 +164,10 @@ class _BotResource(Resource):
     @staticmethod
     def _request_handler(request):
         """Handling request.
-        
+
         :param request: Request instance.
         :return: one instance from _MESSAGE_TYPES.
-        
+
         """
         body = request.content.read()
         if not hasattr(json, 'JSONDecodeError'):
@@ -190,10 +195,10 @@ class _BotResource(Resource):
     @staticmethod
     def _error_handler(failure, request):
         """Handling error.
-        
+
         :param failure: Failure instance.
         :param request: Request instance.
-        
+
         """
         failure.trap(ValueError)
         resp_body = _ErrorResponse(

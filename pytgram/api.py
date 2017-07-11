@@ -23,7 +23,7 @@ from .url import get_url
 from .content import (
     DictItem, BadRequest, InlineQuery, CallbackQuery, ChosenInlineResult,
     Update, User, Message, UserProfilePhotos, File, Chat, ChatMember,
-    GameHighScore)
+    GameHighScore, ShippingQuery, PreCheckoutQuery, _Query)
 
 _update_id = 0
 
@@ -33,10 +33,10 @@ if sys.platform == 'win32':
 
 def _api_request(return_type=None):
     """Decorator for API methods.
-    
+
     :param return_type: Return type.
-    :return: Instance of return_type list objects or BadRequest or True. 
-    
+    :return: Instance of return_type list objects or BadRequest or True.
+
     """
     def inner(func):
         @inlineCallbacks
@@ -68,12 +68,12 @@ def _api_request(return_type=None):
 @inlineCallbacks
 def _get_updates(bot, handler=None, **kwargs):
     """Calls the method get_updates. Uses in polling mode only.
-    
+
     :param bot: TelegramBot instance.
     :param handler: Function.
     :param kwargs: kwargs for get_updates method, without offset.
     :return: Deferred.
-    
+
     """
     global _update_id
     handler = handler or MessageHandler.handler
@@ -92,14 +92,14 @@ def _get_updates(bot, handler=None, **kwargs):
 
 def polling(bot, interval=10, handler=None, **kwargs):
     """Starts polling.
-    
+
     :param bot: TelegramBot instance.
     :param interval: Polling interval in seconds.
-    :param handler: Function. If uses, then MessageHandler decorator 
-        will not be works. It's need if you want handling all messages in one 
+    :param handler: Function. If uses, then MessageHandler decorator
+        will not be works. It's need if you want handling all messages in one
         function.
     :param kwargs: kwargs for get_updates method, without offset.
-    
+
     """
     task.LoopingCall(_get_updates, bot, handler, **kwargs).start(interval)
 
@@ -109,22 +109,23 @@ class APIRequestError(Exception):
 
 
 class MessageHandler(object):
-    """This class is a decorator for functions-handlers defined by the user. 
-    The purpose of this entity is to store the handlers associated with a 
+    """This class is a decorator for functions-handlers defined by the user.
+    The purpose of this entity is to store the handlers associated with a
     content type and extract their.
-    
+
     """
     _handlers = {}
 
     def __init__(self, content=None, command=None):
         """Initial instance.
-        
+
         :param content: List of content names.
-            Available content names: text, photo, audio, video, document, 
-            sticker, voice, contact, location, venue, game, inline_query,
-            callback_query, chosen_inline_result.
+            Available content names: text, photo, audio, video, video_note,
+            document, sticker, voice, contact, location, venue, game, invoice,
+            successful_payment, inline_query, callback_query, shipping_query,
+            pre_checkout_query, chosen_inline_result.
         :param command: List of command names.
-        
+
         """
         self._content = content
         if command:
@@ -143,10 +144,10 @@ class MessageHandler(object):
     @staticmethod
     def handler(message):
         """Calls handler.
-        
+
         :param message: input object.
         :return: Deferred.
-        
+
         """
         deferred = threads.deferToThread(MessageHandler._get_handler, message)
 
@@ -161,20 +162,15 @@ class MessageHandler(object):
     @staticmethod
     def _get_handler(message):
         """Gets handler by content.
-        
+
         :param message: input object.
         :return: func or None.
-        
+
         """
+        content = None
         command = None
-        for _content, _content_type in zip(
-                ('inline_query', 'callback_query', 'chosen_inline_query'),
-                (InlineQuery, CallbackQuery, ChosenInlineResult)):
-            if isinstance(message, _content_type):
-                content = _content
-                break
-        else:
-            content = None
+        if isinstance(message, _Query):
+            content = message.get_str_type()
         if not content:
             content = message.content_type
             if content == 'text':
@@ -193,10 +189,10 @@ class MessageHandler(object):
     @staticmethod
     def _get_content_handler(content):
         """Searching for the handler.
-        
+
         :param content: content type name.
         :return: func or None.
-        
+
         """
         handler = None
         for func, content_list in MessageHandler._handlers.items():
@@ -223,19 +219,19 @@ class _HTTPClientProtocol(Protocol):
 class _APIRequest(object):
     """Class for requesting the API."""
 
-    # _url = urljoin(API_URL, 'bot{token}/{method}')
     _url = get_url()
     _HEADERS = Headers({'Content-Type': ['application/json']})
     _UPLOAD_METHODS = ('sendphoto', 'sendaudio', 'sendvideo',
-                       'senddocument', 'sendsticker', 'sendvoice')
+                       'senddocument', 'sendsticker', 'sendvoice',
+                       'sendvideonote')
     _POST_METHODS = ('send', 'forward', 'kick', 'leave',
                      'unban', 'answer', 'edit', 'delete')
 
     def __init__(self, token):
         """Initial instance.
-        
+
         :param token: Bot token.
-        
+
         """
         self._agent = Agent(reactor, pool=HTTPConnectionPool(reactor))
         _APIRequest._url = _APIRequest._url.format(token=token,
@@ -243,12 +239,12 @@ class _APIRequest(object):
 
     def request(self, api_method, **kwargs):
         """Makes request to the API.
-        
+
         :param api_method: API method name.
         :param kwargs: method arguments.
-        
+
         :return: Deferred.
-        
+
         """
         deferred = threads.deferToThread(self._get_request_args, api_method,
                                          **kwargs)
@@ -276,10 +272,10 @@ class _APIRequest(object):
     @staticmethod
     def _upload_request(**kwargs):
         """Uses for upload files.
-        
+
         :param kwargs: request args.
         :return bytes.
-        
+
         """
         return requests.post(**kwargs).content
 
@@ -290,11 +286,11 @@ class _APIRequest(object):
     @staticmethod
     def _get_request_args(api_method, **kwargs):
         """Gets arguments for request.
-        
+
         :param api_method: API method name.
         :param kwargs: method arguments.
         :return: dictionary with the arguments or BadRequest.
-        
+
         """
         req_data = {}
         if api_method in _APIRequest._UPLOAD_METHODS:
@@ -365,14 +361,14 @@ class TelegramBot(object):
         """Use this method to receive incoming updates using long polling.
 
         :param offset: Identifier of the first update to be returned.
-        :param limit: Limits the number of updates to be retrieved. 
+        :param limit: Limits the number of updates to be retrieved.
             Values between 1—100 are accepted. Defaults to 100.
-        :param timeout: Timeout in seconds for long polling. 
-            Defaults to 0, i.e. usual short polling. Should be positive, 
+        :param timeout: Timeout in seconds for long polling.
+            Defaults to 0, i.e. usual short polling. Should be positive,
             short polling should be used for testing purposes only.
-        :param allowed_updates: List the types of updates you want your bot 
-            to receive.  For example, specify ['message', 
-            'edited_channel_post', 'callback_query'] to only receive updates 
+        :param allowed_updates: List the types of updates you want your bot
+            to receive.  For example, specify ['message',
+            'edited_channel_post', 'callback_query'] to only receive updates
             of these types.
         :return: List of Update objects.
 
@@ -394,21 +390,21 @@ class TelegramBot(object):
                      reply_to_message_id=None, reply_markup=None):
         """Use this method to send text messages.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
         :param text: Text of the message to be sent.
-        :param parse_mode: Send Markdown or HTML, if you want Telegram apps 
-            to show bold, italic, fixed-width text or inline URLs in your 
+        :param parse_mode: Send Markdown or HTML, if you want Telegram apps
+            to show bold, italic, fixed-width text or inline URLs in your
             bot's message.
-        :param disable_web_page_preview: Disables link previews for links in 
+        :param disable_web_page_preview: Disables link previews for links in
             this message.
-        :param disable_notification: Sends the message silently. iOS users 
-            will not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users
+            will not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
         :return: Message.
 
@@ -420,15 +416,15 @@ class TelegramBot(object):
                         disable_notification=None):
         """Use this method to forward messages of any kind.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param from_chat_id: Unique identifier for the chat where the original 
-            message was sent (or channel username in the format 
+        :param from_chat_id: Unique identifier for the chat where the original
+            message was sent (or channel username in the format
             @channelusername).
-        :param message_id: Message identifier in the chat specified in 
+        :param message_id: Message identifier in the chat specified in
             from_chat_id.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
         :return: Message.
 
@@ -441,23 +437,23 @@ class TelegramBot(object):
                    reply_markup=None):
         """Use this method to send photos.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param photo: Photo to send. Pass a file_id as String to send a photo 
-            that exists on the Telegram servers (recommended), pass an HTTP URL 
-            as a String for Telegram to get a photo from the Internet, or 
+        :param photo: Photo to send. Pass a file_id as String to send a photo
+            that exists on the Telegram servers (recommended), pass an HTTP URL
+            as a String for Telegram to get a photo from the Internet, or
             upload a new photo.
-        :param caption: Photo caption (may also be used when resending photos 
+        :param caption: Photo caption (may also be used when resending photos
             by file_id), 0-200 characters.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
-        :return: Message. 
+        :return: Message.
 
         """
         pass
@@ -466,27 +462,27 @@ class TelegramBot(object):
     def send_audio(self, *, chat_id, audio, caption=None, duration=None,
                    performer=None, title=None, disable_notification=None,
                    reply_to_message_id=None, reply_markup=None):
-        """Use this method to send audio files, if you want Telegram clients 
-        to display them in the music player. Your audio must be in the .mp3 
+        """Use this method to send audio files, if you want Telegram clients
+        to display them in the music player. Your audio must be in the .mp3
         format.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param audio: Audio file to send. Pass a file_id as String to send an 
-            audio file that exists on the Telegram servers (recommended), pass 
-            an HTTP URL as a String for Telegram to get an audio file from the 
+        :param audio: Audio file to send. Pass a file_id as String to send an
+            audio file that exists on the Telegram servers (recommended), pass
+            an HTTP URL as a String for Telegram to get an audio file from the
             Internet, or upload a new.
         :param caption: Audio caption, 0-200 characters.
         :param duration: Duration of the audio in seconds.
         :param performer: Performer.
         :param title: Track name.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
         :return: Message.
 
@@ -499,21 +495,21 @@ class TelegramBot(object):
                       reply_markup=None):
         """Use this method to send general files.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param document: File to send. Pass a file_id as String to send a file 
-            that exists on the Telegram servers (recommended), pass an HTTP URL 
-            as a String for Telegram to get a file from the Internet, or upload 
+        :param document: File to send. Pass a file_id as String to send a file
+            that exists on the Telegram servers (recommended), pass an HTTP URL
+            as a String for Telegram to get a file from the Internet, or upload
             a new.
-        :param caption: Document caption (may also be used when resending 
+        :param caption: Document caption (may also be used when resending
             documents by file_id), 0-200 characters.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
         :return: Message.
 
@@ -525,19 +521,19 @@ class TelegramBot(object):
                      reply_to_message_id=None, reply_markup=None):
         """Use this method to send .webp stickers.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param sticker: Sticker to send. Pass a file_id as String to send a 
-            file that exists on the Telegram servers (recommended), pass an 
-            HTTP URL as a String for Telegram to get a .webp file from the 
+        :param sticker: Sticker to send. Pass a file_id as String to send a
+            file that exists on the Telegram servers (recommended), pass an
+            HTTP URL as a String for Telegram to get a .webp file from the
             Internet, or upload a new.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
         :return: Message.
 
@@ -548,29 +544,56 @@ class TelegramBot(object):
     def send_video(self, *, chat_id, video, duration=None, width=None,
                    height=None, caption=None, disable_notification=None,
                    reply_to_message_id=None, reply_markup=None):
-        """Use this method to send video files, Telegram clients support mp4 
-        videos (other formats may be sent as Document). 
+        """Use this method to send video files, Telegram clients support mp4
+        videos (other formats may be sent as Document).
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param video: Video to send. Pass a file_id as String to send a video 
-            that exists on the Telegram servers (recommended), pass an HTTP URL 
-            as a String for Telegram to get a video from the Internet, or 
+        :param video: Video to send. Pass a file_id as String to send a video
+            that exists on the Telegram servers (recommended), pass an HTTP URL
+            as a String for Telegram to get a video from the Internet, or
             upload a new.
         :param duration: Duration of sent video in seconds.
         :param width: Video width.
         :param height: Video height.
-        :param caption: Video caption (may also be used when resending videos 
+        :param caption: Video caption (may also be used when resending videos
             by file_id), 0-200 characters.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
-        :return: 
+        :return:
+        """
+        pass
+
+    @_api_request(Message)
+    def send_video_note(self, *, chat_id, video_note, duration=None,
+                        length=None, disable_notification=None,
+                        reply_to_message_id=None, reply_markup=None):
+        """As of v.4.0, Telegram clients support rounded square mp4 videos of
+        up to 1 minute long. Use this method to send video messages. On
+        success, the sent Message is returned.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param video_note: Video note to send. Pass a file_id as String to send
+            a video note that exists on the Telegram servers (recommended) or
+            upload a new video.
+        :param duration: Duration of sent video in seconds.
+        :param length: Video width and height.
+        :param disable_notification: Sends the message silently. Users will
+            receive a notification with no sound.
+        :param reply_to_message_id: If the message is a reply, ID of the
+            original message.
+        :param reply_markup: Additional interface options (
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
+            or ForceReply).
+        :return: Message.
+
         """
         pass
 
@@ -578,26 +601,26 @@ class TelegramBot(object):
     def send_voice(self, *, chat_id, voice, caption=None, duration=None,
                    disable_notification=None, reply_to_message_id=None,
                    reply_markup=None):
-        """Use this method to send audio files, if you want Telegram clients to 
-        display the file as a playable voice message. For this to work, your 
-        audio must be in an .ogg file encoded with OPUS (other formats may be 
+        """Use this method to send audio files, if you want Telegram clients to
+        display the file as a playable voice message. For this to work, your
+        audio must be in an .ogg file encoded with OPUS (other formats may be
         sent as Audio or Document).
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param voice: Audio file to send. Pass a file_id as String to send a 
-            file that exists on the Telegram servers (recommended), pass an 
-            HTTP URL as a String for Telegram to get a file from the Internet, 
+        :param voice: Audio file to send. Pass a file_id as String to send a
+            file that exists on the Telegram servers (recommended), pass an
+            HTTP URL as a String for Telegram to get a file from the Internet,
             or upload a new.
         :param caption: Voice message caption, 0-200 characters.
         :param duration: Duration of the voice message in seconds.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
             or ForceReply).
         :return: Message.
 
@@ -610,18 +633,18 @@ class TelegramBot(object):
                       reply_markup=None):
         """Use this method to send point on the map.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
         :param latitude: Latitude of location.
         :param longitude: Longitude of location.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
-            or ForceReply). 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
+            or ForceReply).
         :return: Message.
 
         """
@@ -633,21 +656,21 @@ class TelegramBot(object):
                    reply_to_message_id=None, reply_markup=None):
         """Use this method to send information about a venue.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
         :param latitude: Latitude of the venue.
         :param longitude: Longitude of the venue.
         :param title: Name of the venue.
         :param address: Address of the venue.
         :param foursquare_id: Foursquare identifier of the venue.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
-            or ForceReply). 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
+            or ForceReply).
         :return: Message.
 
         """
@@ -659,19 +682,19 @@ class TelegramBot(object):
                      reply_to_message_id=None, reply_markup=None):
         """Use this method to send phone contacts.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
         :param phone_number: Contact's phone number.
         :param first_name: Contact's first name.
         :param last_name: Contact's last name.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: Additional interface options (
-            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove 
-            or ForceReply). 
+            InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove
+            or ForceReply).
         :return: Message.
 
         """
@@ -679,18 +702,19 @@ class TelegramBot(object):
 
     @_api_request()
     def send_chat_action(self, *, chat_id, action):
-        """Use this method when you need to tell the user that something is 
-        happening on the bot's side. The status is set for 5 seconds or less 
-        (when a message arrives from your bot, Telegram clients clear its 
+        """Use this method when you need to tell the user that something is
+        happening on the bot's side. The status is set for 5 seconds or less
+        (when a message arrives from your bot, Telegram clients clear its
         typing status).
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
-        :param action: Type of action to broadcast. Choose one, depending on 
-            what the user is about to receive: typing for text messages, 
-            upload_photo for photos, record_video or upload_video for videos, 
-            record_audio or upload_audio for audio files, upload_document for 
-            general files, find_location for location data.
+        :param action: Type of action to broadcast. Choose one, depending on
+            what the user is about to receive: typing for text messages,
+            upload_photo for photos, record_video or upload_video for videos,
+            record_audio or upload_audio for audio files, upload_document for
+            general files, find_location for location data, record_video_note
+            or upload_video_note for video notes.
         :return: True.
 
         """
@@ -701,9 +725,9 @@ class TelegramBot(object):
         """Use this method to get a list of profile pictures for a user.
 
         :param user_id: Unique identifier of the target user.
-        :param offset: Sequential number of the first photo to be returned. By 
+        :param offset: Sequential number of the first photo to be returned. By
             default, all photos are returned.
-        :param limit: Limits the number of photos to be retrieved. Values 
+        :param limit: Limits the number of photos to be retrieved. Values
             between 1—100 are accepted. Defaults to 100.
         :return: UserProfilePhotos.
 
@@ -712,7 +736,7 @@ class TelegramBot(object):
 
     @_api_request(return_type=File)
     def get_file(self, *, file_id):
-        """Use this method to get basic info about a file and prepare it for 
+        """Use this method to get basic info about a file and prepare it for
             downloading.
 
         :param file_id: File identifier to get info about.
@@ -723,12 +747,12 @@ class TelegramBot(object):
 
     @_api_request()
     def kick_chat_member(self, *, chat_id, user_id):
-        """Use this method to kick a user from a group or a supergroup. In the 
-        case of supergroups, the user will not be able to return to the group 
-        on their own using invite links, etc., unless unbanned first. The bot 
+        """Use this method to kick a user from a group or a supergroup. In the
+        case of supergroups, the user will not be able to return to the group
+        on their own using invite links, etc., unless unbanned first. The bot
         must be an administrator in the group for this to work.
 
-        :param chat_id: Unique identifier for the target group or username of 
+        :param chat_id: Unique identifier for the target group or username of
             the target supergroup (in the format @supergroupusername).
         :param user_id: Unique identifier of the target user.
         :return: True.
@@ -738,10 +762,10 @@ class TelegramBot(object):
 
     @_api_request()
     def leave_chat(self, *, chat_id):
-        """Use this method for your bot to leave a group, supergroup or 
+        """Use this method for your bot to leave a group, supergroup or
             channel.
 
-        :param chat_id: Unique identifier for the target group or username of 
+        :param chat_id: Unique identifier for the target group or username of
             the target supergroup (in the format @supergroupusername).
         :return: True.
 
@@ -750,12 +774,12 @@ class TelegramBot(object):
 
     @_api_request()
     def unban_chat_member(self, *, chat_id, user_id):
-        """Use this method to unban a previously kicked user in a supergroup. 
-        The user will not return to the group automatically, but will be able 
-        to join via link, etc. The bot must be an administrator in the group 
-        for this to work. 
+        """Use this method to unban a previously kicked user in a supergroup.
+        The user will not return to the group automatically, but will be able
+        to join via link, etc. The bot must be an administrator in the group
+        for this to work.
 
-        :param chat_id: Unique identifier for the target group or username of 
+        :param chat_id: Unique identifier for the target group or username of
             the target supergroup (in the format @supergroupusername).
         :param user_id: Unique identifier of the target user.
         :return: True.
@@ -765,11 +789,11 @@ class TelegramBot(object):
 
     @_api_request(return_type=Chat)
     def get_chat(self, *, chat_id):
-        """Use this method to get up to date information about the chat 
-        (current name of the user for one-on-one conversations, current 
+        """Use this method to get up to date information about the chat
+        (current name of the user for one-on-one conversations, current
         username of a user, group or channel, etc.).
 
-        :param chat_id: Unique identifier for the target group or username of 
+        :param chat_id: Unique identifier for the target group or username of
             the target supergroup (in the format @supergroupusername).
         :return: Chat.
 
@@ -781,7 +805,7 @@ class TelegramBot(object):
     def get_chat_administrators(self, *, chat_id):
         """Use this method to get a list of administrators in a chat.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target supergroup or channel (in the format @channelusername).
         :return: ChatMember.
 
@@ -792,7 +816,7 @@ class TelegramBot(object):
     def get_chat_members_count(self, *, chat_id):
         """Use this method to get the number of members in a chat.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target supergroup or channel (in the format @channelusername).
         :return: int.
 
@@ -803,7 +827,7 @@ class TelegramBot(object):
     def get_chat_member(self, *, chat_id, user_id):
         """Use this method to get information about a member of a chat.
 
-        :param chat_id: Unique identifier for the target chat or username of 
+        :param chat_id: Unique identifier for the target chat or username of
             the target supergroup or channel (in the format @channelusername).
         :param user_id: Unique identifier of the target user.
         :return: ChatMember.
@@ -814,23 +838,23 @@ class TelegramBot(object):
     @_api_request()
     def answer_callback_query(self, *, callback_query_id, text=None, url=None,
                               show_alert=None, cache_time=None):
-        """Use this method to send answers to callback queries sent from inline 
-        keyboards. The answer will be displayed to the user as a notification 
+        """Use this method to send answers to callback queries sent from inline
+        keyboards. The answer will be displayed to the user as a notification
         at the top of the chat screen or as an alert.
 
-        :param callback_query_id: Unique identifier for the query to be 
+        :param callback_query_id: Unique identifier for the query to be
             answered.
-        :param text: Text of the notification. If not specified, nothing will 
+        :param text: Text of the notification. If not specified, nothing will
             be shown to the user, 0-200 characters.
-        :param url: URL that will be opened by the user's client. If you have 
-            created a Game and accepted the conditions via @Botfather, specify 
-            the URL that opens your game – note that this will only work if the 
+        :param url: URL that will be opened by the user's client. If you have
+            created a Game and accepted the conditions via @Botfather, specify
+            the URL that opens your game – note that this will only work if the
             query comes from a callback_game button.
-        :param show_alert: If true, an alert will be shown by the client 
-            instead of a notification at the top of the chat screen. Defaults 
+        :param show_alert: If true, an alert will be shown by the client
+            instead of a notification at the top of the chat screen. Defaults
             to false.
-        :param cache_time: The maximum amount of time in seconds that the 
-            result of the callback query may be cached client-side. Telegram 
+        :param cache_time: The maximum amount of time in seconds that the
+            result of the callback query may be cached client-side. Telegram
             apps will support caching starting in version 3.14. Defaults to 0.
         :return: True.
 
@@ -841,24 +865,24 @@ class TelegramBot(object):
     def edit_message_text(self, *, chat_id, text, message_id=None,
                           inline_message_id=None, parse_mode=None,
                           disable_web_page_preview=None, reply_markup=None):
-        """Use this method to edit text and game messages sent by the bot or 
+        """Use this method to edit text and game messages sent by the bot or
         via the bot (for inline bots).
 
-        :param chat_id:Required if inline_message_id is not specified. Unique 
-            identifier for the target chat or username of the target channel 
-            (in the format @channelusername). 
+        :param chat_id:Required if inline_message_id is not specified. Unique
+            identifier for the target chat or username of the target channel
+            (in the format @channelusername).
         :param text: New text of the message.
-        :param message_id: Required if inline_message_id is not specified. 
+        :param message_id: Required if inline_message_id is not specified.
             Identifier of the sent message.
-        :param inline_message_id: Required if chat_id and message_id are not 
+        :param inline_message_id: Required if chat_id and message_id are not
             specified. Identifier of the inline message.
-        :param parse_mode: Send Markdown or HTML, if you want Telegram apps to 
-            show bold, italic, fixed-width text or inline URLs in your bot's 
-            message. 
-        :param disable_web_page_preview: Disables link previews for links in 
+        :param parse_mode: Send Markdown or HTML, if you want Telegram apps to
+            show bold, italic, fixed-width text or inline URLs in your bot's
+            message.
+        :param disable_web_page_preview: Disables link previews for links in
             this message.
         :param reply_markup: InlineKeyboardMarkup.
-        :return:  If edited message is sent by the bot, the edited Message is 
+        :return:  If edited message is sent by the bot, the edited Message is
             returned, otherwise True is returned.
 
         """
@@ -868,19 +892,19 @@ class TelegramBot(object):
     def edit_message_caption(self, *, chat_id=None, message_id=None,
                              inline_message_id=None, caption=None,
                              reply_markup=None):
-        """Use this method to edit captions of messages sent by the bot or via 
+        """Use this method to edit captions of messages sent by the bot or via
         the bot (for inline bots).
 
-        :param chat_id: Required if inline_message_id is not specified. Unique 
-            identifier for the target chat or username of the target channel 
+        :param chat_id: Required if inline_message_id is not specified. Unique
+            identifier for the target chat or username of the target channel
             (in the format @channelusername).
-        :param message_id: Required if inline_message_id is not specified. 
+        :param message_id: Required if inline_message_id is not specified.
             Identifier of the sent message.
-        :param inline_message_id: Required if chat_id and message_id are not 
+        :param inline_message_id: Required if chat_id and message_id are not
             specified. Identifier of the inline message.
         :param caption: New caption of the message.
         :param reply_markup: InlineKeyboardMarkup.
-        :return: If edited message is sent by the bot, the edited Message is 
+        :return: If edited message is sent by the bot, the edited Message is
             returned, otherwise True is returned.
 
         """
@@ -889,19 +913,42 @@ class TelegramBot(object):
     @_api_request(return_type=Message)
     def edit_message_reply_markup(self, *, chat_id=None, message_id=None,
                                   inline_message_id=None, reply_markup=None):
-        """Use this method to edit only the reply markup of messages sent by 
+        """Use this method to edit only the reply markup of messages sent by
         the bot or via the bot (for inline bots).
 
-        :param chat_id: Required if inline_message_id is not specified. Unique 
-            identifier for the target chat or username of the target channel 
+        :param chat_id: Required if inline_message_id is not specified. Unique
+            identifier for the target chat or username of the target channel
             (in the format @channelusername).
-        :param message_id: Required if inline_message_id is not specified. 
+        :param message_id: Required if inline_message_id is not specified.
             Identifier of the sent message.
-        :param inline_message_id: Required if chat_id and message_id are not 
+        :param inline_message_id: Required if chat_id and message_id are not
             specified. Identifier of the inline message.
         :param reply_markup: InlineKeyboardMarkup.
-        :return:  If edited message is sent by the bot, the edited Message is 
+        :return:  If edited message is sent by the bot, the edited Message is
             returned, otherwise True is returned.
+
+        """
+        pass
+
+    @_api_request()
+    def delete_message(self, *, chat_id, message_id):
+        """Use this method to delete a message, including service messages,
+        with the following limitations:
+            - A message can only be deleted if it was sent less than 48 hours
+                ago.
+            - Bots can delete outgoing messages in groups and supergroups.
+            - Bots granted can_post_messages permissions can delete outgoing
+                messages in channels.
+            - If the bot is an administrator of a group, it can delete any
+                message there.
+            - If the bot has can_delete_messages permission in a supergroup or
+                a channel, it can delete any message there.
+        Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param message_id: Identifier of the message to delete.
+        :return: True.
 
         """
         pass
@@ -915,22 +962,22 @@ class TelegramBot(object):
 
         :param inline_query_id: Unique identifier for the answered query.
         :param results: List of results for the inline query.
-        :param cache_timer: The maximum amount of time in seconds that the 
-            result of the inline query may be cached on the server. Defaults 
+        :param cache_timer: The maximum amount of time in seconds that the
+            result of the inline query may be cached on the server. Defaults
             to 300.
-        :param is_personal: Pass True, if results may be cached on the server 
-            side only for the user that sent the query. By default, results may 
+        :param is_personal: Pass True, if results may be cached on the server
+            side only for the user that sent the query. By default, results may
             be returned to any user who sends the same query.
-        :param next_offset: Pass the offset that a client should send in the 
-            next query with the same text to receive more results. Pass an 
-            empty string if there are no more results or if you don‘t support 
-            pagination. Offset length can’t exceed 64 bytes. 
-        :param switch_pm_text: If passed, clients will display a button with 
-            specified text that switches the user to a private chat with the 
-            bot and sends the bot a start message with the parameter 
+        :param next_offset: Pass the offset that a client should send in the
+            next query with the same text to receive more results. Pass an
+            empty string if there are no more results or if you don‘t support
+            pagination. Offset length can’t exceed 64 bytes.
+        :param switch_pm_text: If passed, clients will display a button with
+            specified text that switches the user to a private chat with the
+            bot and sends the bot a start message with the parameter
             switch_pm_parameter.
-        :param switch_pm_parameter: Deep-linking parameter for the /start 
-            message sent to the bot when user presses the switch button. 
+        :param switch_pm_parameter: Deep-linking parameter for the /start
+            message sent to the bot when user presses the switch button.
             1-64 characters, only A-Z, a-z, 0-9, _ and - are allowed.
         :return: True.
 
@@ -940,15 +987,15 @@ class TelegramBot(object):
     @_api_request(return_type=Message)
     def send_game(self, *, chat_id, game_short_name, disable_notification=None,
                   reply_to_message_id=None, reply_markup=None):
-        """Use this method to send a game. 
+        """Use this method to send a game.
 
         :param chat_id: Unique identifier for the target chat.
-        :param game_short_name: Short name of the game, serves as the unique 
+        :param game_short_name: Short name of the game, serves as the unique
             identifier for the game. Set up your games via Botfather.
-        :param disable_notification: Sends the message silently. iOS users will 
-            not receive a notification, Android users will receive a 
+        :param disable_notification: Sends the message silently. iOS users will
+            not receive a notification, Android users will receive a
             notification with no sound.
-        :param reply_to_message_id: If the message is a reply, ID of the 
+        :param reply_to_message_id: If the message is a reply, ID of the
             original message.
         :param reply_markup: InlineKeyboardMarkup.
         :return: Message.
@@ -964,19 +1011,19 @@ class TelegramBot(object):
 
         :param user_id: User identifier.
         :param score: New score, must be non-negative.
-        :param force: Pass True, if the high score is allowed to decrease. 
+        :param force: Pass True, if the high score is allowed to decrease.
             This can be useful when fixing mistakes or banning cheaters.
-        :param disable_edit_message: Pass True, if the game message should not 
+        :param disable_edit_message: Pass True, if the game message should not
             be automatically edited to include the current scoreboard.
-        :param chat_id: Required if inline_message_id is not specified. Unique 
+        :param chat_id: Required if inline_message_id is not specified. Unique
             identifier for the target chat.
-        :param message_id: Required if inline_message_id is not specified. 
+        :param message_id: Required if inline_message_id is not specified.
             Identifier of the sent message.
-        :param inline_message_id: Required if chat_id and message_id are not 
+        :param inline_message_id: Required if chat_id and message_id are not
             specified. Identifier of the inline message.
-        :return: if the message was sent by the bot, returns the edited 
-            Message, otherwise returns True. Returns an error, if the new score 
-            is not greater than the user's current score in the chat and force 
+        :return: if the message was sent by the bot, returns the edited
+            Message, otherwise returns True. Returns an error, if the new score
+            is not greater than the user's current score in the chat and force
             is False.
 
         """
@@ -988,13 +1035,111 @@ class TelegramBot(object):
         """Use this method to get data for high score tables.
 
         :param user_id: Target user id.
-        :param chat_id: Required if inline_message_id is not specified. Unique 
+        :param chat_id: Required if inline_message_id is not specified. Unique
             identifier for the target chat.
-        :param message_id: Required if inline_message_id is not specified. 
+        :param message_id: Required if inline_message_id is not specified.
             Identifier of the sent message.
-        :param inline_message_id: Required if chat_id and message_id are not 
+        :param inline_message_id: Required if chat_id and message_id are not
             specified. Identifier of the inline message.
         :return: List of GameHighScore.
+
+        """
+        pass
+
+    @_api_request(return_type=Message)
+    def send_invoice(self, *, chat_id, title, payload, provider_token, prices,
+                     start_parameter, currency, photo_url=None, need_name=None,
+                     description=None, photo_size=None, photo_width=None,
+                     photo_height=None, need_phone_number=None,
+                     need_email=None, need_shipping_address=None,
+                     is_flexible=None, disable_notification=None,
+                     reply_to_message_id=None, reply_markup=None):
+        """Use this method to send invoices.
+
+        :param chat_id: Unique identifier for the target private chat.
+        :param title: Product name, 1-32 characters.
+        :param payload: Bot-defined invoice payload, 1-128 bytes. This will not
+            be displayed to the user, use for your internal processes.
+        :param provider_token: Payments provider token, obtained via Botfather.
+        :param prices: List of LabeledPrice. Price breakdown, a list of
+            components (e.g. product price, tax, discount, delivery cost,
+            delivery tax, bonus, etc.).
+        :param start_parameter: Unique deep-linking parameter that can be used
+            to generate this invoice when used as a start parameter.
+        :param currency: Three-letter ISO 4217 currency code.
+        :param photo_url: URL of the product photo for the invoice. Can be a
+            photo of the goods or a marketing image for a service. People like
+            it better when they see what they are paying for.
+        :param need_name: Pass True, if you require the user's full name to
+            complete the order.
+        :param description: Product description, 1-255 characters.
+        :param photo_size: Photo size.
+        :param photo_width: Photo width.
+        :param photo_height: Photo height.
+        :param need_phone_number: Pass True, if you require the user's phone
+            number to complete the order.
+        :param need_email: Pass True, if you require the user's email to
+            complete the order.
+        :param need_shipping_address: Pass True, if you require the user's
+            shipping address to complete the order.
+        :param is_flexible: Pass True, if the final price depends on the
+            shipping method.
+        :param disable_notification: Sends the message silently. Users will
+            receive a notification with no sound.
+        :param reply_to_message_id: If the message is a reply, ID of the
+            original message.
+        :param reply_markup: InlineKeyboardMarkup.
+        :return: Message.
+
+        """
+        pass
+
+    @_api_request()
+    def answer_shipping_query(self, shipping_query_id, ok,
+                              shipping_options=None, error_message=None):
+        """If you sent an invoice requesting a shipping address and the
+        parameter is_flexible was specified, the Bot API will send an Update
+        with a shipping_query field to the bot. Use this method to reply to
+        shipping queries. On success, True is returned.
+
+        :param shipping_query_id: Unique identifier for the query to be
+            answered.
+        :param ok: Specify True if delivery to the specified address is
+            possible and False if there are any problems (for example, if
+            delivery to the specified address is not possible).
+        :param shipping_options: List of ShippingOption. Required if ok is
+            True.
+        :param error_message: Required if ok is False. Error message in human
+            readable form that explains why it is impossible to complete the
+            order (e.g. "Sorry, delivery to your desired address is
+            unavailable'). Telegram will display this message to the user.
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def answer_pre_checkout_query(self, pre_checkout_query_id, ok,
+                                  error_message=None):
+        """Once the user has confirmed their payment and shipping details,
+        the Bot API sends the final confirmation in the form of an Update with
+        the field pre_checkout_query. Use this method to respond to such
+        pre-checkout queries. On success, True is returned. Note: The Bot API
+        must receive an answer within 10 seconds after the pre-checkout query
+        was sent.
+
+        :param pre_checkout_query_id: Unique identifier for the query to be
+            answered.
+        :param ok: Specify True if everything is alright (goods are available,
+            etc.) and the bot is ready to proceed with the order. Use False if
+            there are any problems.
+        :param error_message: Required if ok is False. Error message in human
+            readable form that explains the reason for failure to proceed with
+            the checkout (e.g. "Sorry, somebody just bought the last of our
+            amazing black T-shirts while you were busy filling out your payment
+            details. Please choose a different color or garment!"). Telegram
+            will display this message to the user.
+        :return: True.
 
         """
         pass
