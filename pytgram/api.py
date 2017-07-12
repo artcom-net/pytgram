@@ -21,9 +21,10 @@ from twisted.web.client import Agent, FileBodyProducer, HTTPConnectionPool
 
 from .url import get_url
 from .content import (
-    DictItem, BadRequest, InlineQuery, CallbackQuery, ChosenInlineResult,
-    Update, User, Message, UserProfilePhotos, File, Chat, ChatMember,
-    GameHighScore, ShippingQuery, PreCheckoutQuery, _Query)
+    DictItem, BadRequest, Update, User, Message, UserProfilePhotos, File, Chat,
+    ChatMember, GameHighScore, _Query
+)
+
 
 _update_id = 0
 
@@ -223,9 +224,9 @@ class _APIRequest(object):
     _HEADERS = Headers({'Content-Type': ['application/json']})
     _UPLOAD_METHODS = ('sendphoto', 'sendaudio', 'sendvideo',
                        'senddocument', 'sendsticker', 'sendvoice',
-                       'sendvideonote')
-    _POST_METHODS = ('send', 'forward', 'kick', 'leave',
-                     'unban', 'answer', 'edit', 'delete')
+                       'sendvideonote', 'setchatphoto')
+    _POST_METHODS = ('send', 'forward', 'kick', 'leave', 'pin', 'unpin',
+                     'unban', 'answer', 'edit', 'delete', 'set')
 
     def __init__(self, token):
         """Initial instance.
@@ -746,7 +747,7 @@ class TelegramBot(object):
         pass
 
     @_api_request()
-    def kick_chat_member(self, *, chat_id, user_id):
+    def kick_chat_member(self, *, chat_id, user_id, until_date=None):
         """Use this method to kick a user from a group or a supergroup. In the
         case of supergroups, the user will not be able to return to the group
         on their own using invite links, etc., unless unbanned first. The bot
@@ -755,6 +756,9 @@ class TelegramBot(object):
         :param chat_id: Unique identifier for the target group or username of
             the target supergroup (in the format @supergroupusername).
         :param user_id: Unique identifier of the target user.
+        :param until_date: Date when the user will be unbanned, unix time. If
+            user is banned for more than 366 days or less than 30 seconds from
+            the current time they are considered to be banned forever.
         :return: True.
 
         """
@@ -1139,6 +1143,178 @@ class TelegramBot(object):
             amazing black T-shirts while you were busy filling out your payment
             details. Please choose a different color or garment!"). Telegram
             will display this message to the user.
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def restrict_chat_member(self, *, chat_id, user_id, until_date=None,
+                             can_send_messages=None,
+                             can_send_media_messages=None,
+                             can_send_other_messages=None,
+                             can_add_web_page_previews=None):
+        """Use this method to restrict a user in a supergroup. The bot must be
+        an administrator in the supergroup for this to work and must have the
+        appropriate admin rights. Pass True for all boolean parameters to lift
+        restrictions from a user. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target supergroup (in the format @supergroupusername).
+        :param user_id: Unique identifier of the target user.
+        :param until_date: Date when restrictions will be lifted for the user,
+            unix time. If user is restricted for more than 366 days or less
+            than 30 seconds from the current time, they are considered to be
+            restricted forever.
+        :param can_send_messages: Pass True, if the user can send text
+            messages, contacts, locations and venues.
+        :param can_send_media_messages: Pass True, if the user can send audios,
+            documents, photos, videos, video notes and voice notes, implies
+            can_send_messages.
+        :param can_send_other_messages: Pass True, if the user can send
+            animations, games, stickers and use inline bots, implies
+            can_send_media_messages.
+        :param can_add_web_page_previews: Pass True, if the user may add web
+            page previews to their messages, implies can_send_media_messages.
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def promote_chat_member(self, *, chat_id, user_id, can_change_info=None,
+                            can_post_messages=None, can_edit_messages=None,
+                            can_delete_messages=None, can_invite_users=None,
+                            can_restrict_members=None, can_pin_messages=None,
+                            can_promote_members=None):
+        """se this method to promote or demote a user in a supergroup or a
+        channel. The bot must be an administrator in the chat for this to work
+        and must have the appropriate admin rights. Pass False for all boolean
+        parameters to demote a user. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param user_id: Unique identifier of the target user.
+        :param can_change_info: Pass True, if the administrator can change chat
+            title, photo and other settings.
+        :param can_post_messages: Pass True, if the administrator can create
+            channel posts, channels only.
+        :param can_edit_messages: Pass True, if the administrator can edit
+            messages of other users, channels only.
+        :param can_delete_messages: Pass True, if the administrator can delete
+            messages of other users.
+        :param can_invite_users: Pass True, if the administrator can invite new
+            users to the chat.
+        :param can_restrict_members: Pass True, if the administrator can
+            restrict, ban or unban chat members.
+        :param can_pin_messages: Pass True, if the administrator can pin
+            messages, supergroups only.
+        :param can_promote_members: Pass True, if the administrator can add new
+            administrators with a subset of his own privileges or demote
+            administrators that he has promoted, directly or indirectly
+            (promoted by administrators that were appointed by him).
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def export_chat_invite_link(self, *, chat_id):
+        """Use this method to export an invite link to a supergroup or a
+        channel. The bot must be an administrator in the chat for this to work
+        and must have the appropriate admin rights. Returns exported invite
+        link as String on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :return: str.
+
+        """
+        pass
+
+    @_api_request()
+    def set_chat_photo(self, *, chat_id, photo):
+        """Use this method to set a new profile photo for the chat. Photos
+        can't be changed for private chats. The bot must be an administrator in
+        the chat for this to work and must have the appropriate admin rights.
+        Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param photo: Image file.
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def delete_chat_photo(self, *, chat_id):
+        """Use this method to delete a chat photo. Photos can't be changed for
+        private chats. The bot must be an administrator in the chat for this to
+        work and must have the appropriate admin rights.
+        Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def set_chat_title(self, *, chat_id, title):
+        """Use this method to change the title of a chat. Titles can't be
+        changed for private chats. The bot must be an administrator in the chat
+        for this to work and must have the appropriate admin rights.
+        Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param title: New chat title, 1-255 characters.
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def set_chat_description(self, *, chat_id, description=None):
+        """Use this method to change the description of a supergroup or a
+        channel. The bot must be an administrator in the chat for this to work
+        and must have the appropriate admin rights. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param description: New chat description, 0-255 characters.
+        :return: True.
+
+        """
+        pass
+
+    @_api_request()
+    def pin_chat_message(self, *, chat_id, message_id,
+                         disable_notification=None):
+        """Use this method to pin a message in a supergroup. The bot must be an
+        administrator in the chat for this to work and must have the
+        appropriate admin rights. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
+        :param message_id: Identifier of a message to pin.
+        :param disable_notification: Pass True, if it is not necessary to send
+            a notification to all group members about the new pinned message.
+        :return: True
+
+        """
+        pass
+
+    @_api_request()
+    def unpin_chat_message(self, *, chat_id):
+        """Use this method to unpin a message in a supergroup chat. The bot
+        must be an administrator in the chat for this to work and must have the
+        appropriate admin rights. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target channel (in the format @channelusername).
         :return: True.
 
         """

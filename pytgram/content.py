@@ -163,7 +163,7 @@ class Chat(User):
     """This class represents a chat."""
 
     def __init__(self, type_, all_members_are_administrators=None, title=None,
-                 **kwargs):
+                 photo=None, description=None, invite_link=None, **kwargs):
         """Initial instance.
 
         :param type_: Type of chat, can be either 'private', 'group',
@@ -171,17 +171,42 @@ class Chat(User):
         :param all_members_are_administrators: True if a group has
             'All Members Are Admins' enabled.
         :param title: Title, for supergroups, channels and group chats.
+        :param photo: ChatPhoto. Returned only in getChat.
+        :param description: Description, for supergroups and channel chats.
+            Returned only in getChat.
+        :param invite_link: Chat invite link, for supergroups and channel
+            chats. Returned only in getChat.
         :param kwargs: id, username, first_name, last_name.
 
         """
         super(Chat, self).__init__(**kwargs)
         self.type = type_
         self.title = title
+        self.description = description
+        self.invite_link = invite_link
+        if photo:
+            self.photo = ChatPhoto(**photo)
         self.all_members_are_administrators = all_members_are_administrators
 
     def __str__(self):
         return '{}(id:{id}, type:{type})'.format(self.__class__.__name__,
                                                  **self.__dict__)
+
+
+class ChatPhoto(_Content):
+    """This class represents a chat photo."""
+
+    def __init__(self, small_file_id, big_file_id):
+        """Initial instance.
+
+        :param small_file_id: Unique file identifier of small (160x160) chat
+            photo. This file_id can be used only for photo download.
+        :param big_file_id: Unique file identifier of big (640x640) chat photo.
+            This file_id can be used only for photo download.
+
+        """
+        self.small_file_id = small_file_id
+        self.big_file_id = big_file_id
 
 
 class Contact(User):
@@ -560,16 +585,70 @@ class UserProfilePhotos(_Content):
 class ChatMember(_Content):
     """This class contains information about one member of the chat."""
 
-    def __init__(self, user, status):
+    def __init__(self, user, status, until_date=None, can_be_edited=None,
+                 can_change_info=None, can_post_messages=None,
+                 can_edit_messages=None, can_delete_messages=None,
+                 can_invite_users=None, can_restrict_members=None,
+                 can_pin_messages=None, can_promote_members=None,
+                 can_send_messages=None, can_send_media_messages=None,
+                 can_send_other_messages=None, can_add_web_page_previews=None):
         """Initial instance.
 
         :param user: Information about the user.
         :param status: The member's status in the chat. Can be 'creator',
             'administrator', 'member', 'left' or 'kicked'.
+        :param until_date: Restictred and kicked only. Date when restrictions
+            will be lifted for this user, unix time.
+        :param can_be_edited: Administrators only. True, if the bot is allowed
+            to edit administrator privileges of that user.
+        :param can_change_info: Administrators only. True, if the administrator
+            can change the chat title, photo and other settings.
+        :param can_post_messages: Administrators only. True, if the
+            administrator can post in the channel, channels only.
+        :param can_edit_messages: Administrators only. True, if the
+            administrator can edit messages of other users, channels only.
+        :param can_delete_messages: Administrators only. True, if the
+            administrator can delete messages of other users.
+        :param can_invite_users: Administrators only. True, if the
+            administrator can invite new users to the chat.
+        :param can_restrict_members: Administrators only. True, if the
+            administrator can restrict, ban or unban chat members.
+        :param can_pin_messages: Administrators only. True, if the
+            administrator can pin messages, supergroups only.
+        :param can_promote_members: Administrators only. True, if the
+            administrator can add new administrators with a subset of his own
+            privileges or demote administrators that he has promoted, directly
+            or indirectly (promoted by administrators that were appointed by
+            the user).
+        :param can_send_messages: Restricted only. True, if the user can send
+            text messages, contacts, locations and venues.
+        :param can_send_media_messages: Restricted only. True, if the user can
+            send audios, documents, photos, videos, video notes and voice
+            notes, implies can_send_messages.
+        :param can_send_other_messages: Restricted only. True, if the user can
+            send animations, games, stickers and use inline bots, implies
+            can_send_media_messages.
+        :param can_add_web_page_previews: Restricted only. True, if user may
+            add web page previews to his messages, implies
+            can_send_media_messages.
 
         """
         self.user = User(**user)
         self.status = status
+        self.until_date = until_date
+        self.can_be_edited = can_be_edited
+        self.can_change_info = can_change_info
+        self.can_post_messages = can_post_messages
+        self.can_edit_messages = can_edit_messages
+        self.can_delete_messages = can_delete_messages
+        self.can_invite_users = can_invite_users
+        self.can_restrict_members = can_restrict_members
+        self.can_pin_messages = can_pin_messages
+        self.can_promote_members = can_promote_members
+        self.can_send_messages = can_send_messages
+        self.can_send_media_messages = can_send_media_messages
+        self.can_send_other_messages = can_send_other_messages
+        self.can_add_web_page_previews = can_add_web_page_previews
 
     def __str__(self):
         return '{}(user:{user}, status:{status})'.format(

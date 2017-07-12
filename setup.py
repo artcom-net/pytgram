@@ -1,14 +1,16 @@
 from setuptools import setup
 
+from pytgram import __version__, __author__, __email__, __license__
+
 
 setup(
     name='pytgram',
-    version='0.0.2',
+    version=__version__,
     packages=['pytgram', 'tests'],
     url='https://github.com/artcom-net/pytgram',
-    license='MIT',
-    author='Artem Kustov',
-    author_email='artem.kustov@artcom-net.ru',
+    license=__license__,
+    author=__author__,
+    author_email=__email__,
     description='Library to create Telegram Bot based on Twisted',
     long_description=open('README.rst').read(),
     install_requires=open('requirements.txt').read().split(),
