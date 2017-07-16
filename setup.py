@@ -3,8 +3,11 @@ from setuptools import setup
 
 
 with open(os.path.join('pytgram', '__init__.py'), 'r') as init_file:
-    init_data = {meta.split('=')[0].strip(): meta.split('=')[1].strip()
-                 for meta in init_file if meta.startswith('__')}
+    init_data = {}
+    for line in init_file:
+        if line.startswith('__'):
+            meta, value = line.split('=')
+            init_data[meta.strip()] = value.strip().replace("'", '')
 
 setup(
     name='pytgram',
