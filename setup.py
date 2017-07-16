@@ -1,16 +1,19 @@
+import os
 from setuptools import setup
 
-from pytgram import __version__, __author__, __email__, __license__
 
+with open(os.path.join('pytgram', '__init__.py'), 'r') as init_file:
+    init_data = {meta.split('=')[0].strip(): meta.split('=')[1].strip()
+                 for meta in init_file if meta.startswith('__')}
 
 setup(
     name='pytgram',
-    version=__version__,
+    version=init_data['__version__'],
     packages=['pytgram', 'tests'],
     url='https://github.com/artcom-net/pytgram',
-    license=__license__,
-    author=__author__,
-    author_email=__email__,
+    license=init_data['__license__'],
+    author=init_data['__author__'],
+    author_email=init_data['__email__'],
     description='Library to create Telegram Bot based on Twisted',
     long_description=open('README.rst').read(),
     install_requires=open('requirements.txt').read().split(),
