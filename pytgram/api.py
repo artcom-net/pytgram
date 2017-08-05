@@ -22,7 +22,7 @@ from twisted.web.client import Agent, FileBodyProducer, HTTPConnectionPool
 from .url import get_url
 from .content import (
     DictItem, BadRequest, Update, User, Message, UserProfilePhotos, File, Chat,
-    ChatMember, GameHighScore, _Query
+    ChatMember, GameHighScore, _Query, StickerSet
 )
 
 
@@ -224,9 +224,11 @@ class _APIRequest(object):
     _HEADERS = Headers({'Content-Type': ['application/json']})
     _UPLOAD_METHODS = ('sendphoto', 'sendaudio', 'sendvideo',
                        'senddocument', 'sendsticker', 'sendvoice',
-                       'sendvideonote', 'setchatphoto')
-    _POST_METHODS = ('send', 'forward', 'kick', 'leave', 'pin', 'unpin',
-                     'unban', 'answer', 'edit', 'delete', 'set')
+                       'sendvideonote', 'setchatphoto', 'uploadstickerfile',
+                       'createnewstickerset', 'addstickertoset')
+    _POST_METHODS = ('send', 'forward', 'kick', 'leave', 'pin', 'unpin', 'add',
+                     'unban', 'answer', 'edit', 'delete', 'set', 'upload',
+                     'create')
 
     def __init__(self, token):
         """Initial instance.
@@ -571,7 +573,7 @@ class TelegramBot(object):
         """
         pass
 
-    @_api_request(Message)
+    @_api_request(return_type=Message)
     def send_video_note(self, *, chat_id, video_note, duration=None,
                         length=None, disable_notification=None,
                         reply_to_message_id=None, reply_markup=None):
@@ -1316,6 +1318,100 @@ class TelegramBot(object):
         :param chat_id: Unique identifier for the target chat or username of
             the target channel (in the format @channelusername).
         :return: True.
+
+        """
+        pass
+
+    @_api_request(return_type=StickerSet)
+    def get_sticker_set(self, *, name):
+        """Use this method to get a sticker set. On success, a StickerSet
+        object is returned.
+
+        :param name: Name of the sticker set.
+        :return: StickerSet.
+
+        """
+        pass
+
+    @_api_request(return_type=File)
+    def upload_sticker_file(self, *, user_id, png_sticker):
+        """Use this method to upload a .png file with a sticker for later use
+        in create_new_sticker_set and add_sticker_to_set methods (can be used
+        multiple times). Returns the uploaded File on success.
+
+        :param user_id: User identifier of sticker file owner.
+        :param png_sticker: PNG image with the sticker, must be up to 512
+            kilobytes in size, dimensions must not exceed 512px, and either
+            width or height must be exactly 512px.
+
+        """
+        pass
+
+    @_api_request()
+    def create_new_sticker_set(self, *, user_id, name, title, png_sticker,
+                               emojis, contains_masks=None,
+                               mask_position=None):
+        """Use this method to create new sticker set owned by a user. The bot
+        will be able to edit the created sticker set. Returns True on success.
+
+        :param user_id: User identifier of created sticker set owner.
+        :param name: Short name of sticker set, to be used in t.me/addstickers/
+            URLs (e.g., animals). Can contain only english letters, digits and
+            underscores. Must begin with a letter, can't contain consecutive
+            underscores and must end in “_by_<bot username>”. <bot_username> is
+            case insensitive. 1-64 characters.
+        :param title: Sticker set title, 1-64 characters.
+        :param png_sticker: Png image with the sticker, must be up to 512
+            kilobytes in size, dimensions must not exceed 512px, and either
+            width or height must be exactly 512px. Pass a file_id as a string
+            to send a file that already exists on the Telegram servers, pass an
+            HTTP URL as a string for Telegram to get a file from the Internet,
+            or upload a new one using multipart/form-data.
+        :param emojis: One or more emoji corresponding to the sticker.
+        :param contains_masks: Pass True, if a set of mask stickers should be
+            created.
+        :param mask_position: MaskPosition instance.
+
+        """
+        pass
+
+    @_api_request()
+    def add_sticker_to_set(self, *, user_id, name, png_sticker, emojis,
+                           mask_position=None):
+        """Use this method to add a new sticker to a set created by the bot.
+        Returns True on success.
+
+        :param user_id: User identifier of sticker set owner.
+        :param name: Sticker set name.
+        :param png_sticker: PNG image with the sticker, must be up to 512
+            kilobytes in size, dimensions must not exceed 512px, and either
+            width or height must be exactly 512px. Pass a file_id as a string
+            to send a file that already exists on the Telegram servers, pass an
+            HTTP URL as a string for Telegram to get a file from the Internet,
+            or upload a new one using multipart/form-data.
+        :param emojis: One or more emoji corresponding to the sticker.
+        :param mask_position: MaskPosition instance.
+
+        """
+        pass
+
+    @_api_request()
+    def set_sticker_position_in_set(self, *, sticker, position):
+        """Use this method to move a sticker in a set created by the bot to a
+        specific position . Returns True on success.
+
+        :param sticker: File identifier of the sticker.
+        :param position: New sticker position in the set, zero-based.
+
+        """
+        pass
+
+    @_api_request()
+    def delete_sticker_from_set(self, *, sticker):
+        """Use this method to delete a sticker from a set created by the bot.
+        Returns True on success.
+
+        :param sticker: File identifier of the sticker.
 
         """
         pass

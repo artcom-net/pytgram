@@ -476,15 +476,67 @@ class Document(_MediaContent):
 class Sticker(_MediaContent):
     """This class represents a sticker."""
 
-    def __init__(self, emoji=None, **kwargs):
+    def __init__(self, emoji=None, set_name=None, mask_position=None,
+                 **kwargs):
         """Initial instance.
 
         :param emoji: Emoji associated with the sticker.
+        :param set_name: Name of the sticker set to which the sticker belongs.
+        :param mask_position: For mask stickers, the position where the mask
+            should be placed.
         :param kwargs: file_id, width, height, thumb, file_size.
 
         """
         super(Sticker, self).__init__(**kwargs)
         self.emoji = emoji
+        self.set_name = set_name
+        if mask_position:
+            self.mask_position = MaskPosition(**mask_position)
+
+
+class MaskPosition(DictItem):
+    """This class describes the position on faces where a mask should be placed
+    by default.
+
+    """
+    def __init__(self, point, x_shift, y_shift, scale):
+        """Initial instance.
+
+        :param point: The part of the face relative to which the mask should be
+            placed. One of "forehead", "eyes", "mouth", or "chin".
+        :param x_shift: Shift by X-axis measured in widths of the mask scaled
+            to the face size, from left to right. For example, choosing -1.0
+            will place mask just to the left of the default mask position.
+        :param y_shift: Shift by Y-axis measured in heights of the mask scaled
+            to the face size, from top to bottom. For example, 1.0 will place
+            the mask just below the default mask position.
+        :param scale: Mask scaling coefficient. For example, 2.0 means double
+            size.
+
+        """
+        self.point = point
+        self.x_shift = x_shift
+        self.y_shift = y_shift
+        self.scale = scale
+
+
+class StickerSet(_Content):
+    """This class represents a sticker set."""
+
+    def __init__(self, name, title, contains_masks, stickers):
+        """Initial instance.
+
+        :param name: Sticker set name.
+        :param title: Sticker set title.
+        :param contains_masks: True, if the sticker set contains masks.
+        :param stickers: List of Sticker.
+
+        """
+        self.name = name
+        self.title = title
+        self.contains_masks = contains_masks
+        if stickers:
+            self.stickers = Sticker.from_list(stickers)
 
 
 class Video(_MediaContent):
