@@ -135,7 +135,7 @@ class User(_Content):
     """This class represents a Telegram user or bot."""
 
     def __init__(self, id_, first_name, last_name=None, username=None,
-                 language_code=None):
+                 language_code=None, is_bot=None):
         """Initial instance.
 
         :param id_: Unique identifier for this user or bot.
@@ -143,6 +143,7 @@ class User(_Content):
         :param last_name: User‘s or bot’s last name.
         :param username: User‘s or bot’s username.
         :param language_code: IETF language tag of the user's language.
+        :param is_bot: True, if this user is a bot.
 
         """
         self.id = id_
@@ -150,6 +151,7 @@ class User(_Content):
         self.last_name = last_name
         self.username = username
         self.language_code = language_code
+        self.is_bot = is_bot
 
     def __str__(self):
         return '{}(id:{id}, username:{username})'.format(
@@ -163,7 +165,8 @@ class Chat(User):
     """This class represents a chat."""
 
     def __init__(self, type_, all_members_are_administrators=None, title=None,
-                 photo=None, description=None, invite_link=None, **kwargs):
+                 photo=None, description=None, invite_link=None,
+                 pinned_message=None, **kwargs):
         """Initial instance.
 
         :param type_: Type of chat, can be either 'private', 'group',
@@ -171,11 +174,13 @@ class Chat(User):
         :param all_members_are_administrators: True if a group has
             'All Members Are Admins' enabled.
         :param title: Title, for supergroups, channels and group chats.
-        :param photo: ChatPhoto. Returned only in getChat.
+        :param photo: ChatPhoto. Returned only in get_chat.
         :param description: Description, for supergroups and channel chats.
-            Returned only in getChat.
+            Returned only in get_chat.
         :param invite_link: Chat invite link, for supergroups and channel
-            chats. Returned only in getChat.
+            chats. Returned only in get_chat.
+        :param pinned_message: Pinned message, for supergroups and channel
+            chats. Returned only in get_chat.
         :param kwargs: id, username, first_name, last_name.
 
         """
@@ -184,6 +189,8 @@ class Chat(User):
         self.title = title
         self.description = description
         self.invite_link = invite_link
+        if pinned_message:
+            self.pinned_message = Message(**pinned_message)
         if photo:
             self.photo = ChatPhoto(**photo)
         self.all_members_are_administrators = all_members_are_administrators
@@ -245,7 +252,8 @@ class Message(_Content):
                  delete_chat_photo=None, group_chat_created=None,
                  channel_chat_created=None, migrate_to_chat_id=None,
                  migrate_from_chat_id=None, pinned_message=None, invoice=None,
-                 successful_payment=None):
+                 successful_payment=None, author_signature=None,
+                 forward_signature=None):
         """Initial instance.
 
         :param message_id: Unique message identifier inside this chat.
@@ -317,6 +325,10 @@ class Message(_Content):
             the invoice.
         :param successful_payment:  Message is a service message about a
             successful payment, information about the payment.
+        :param author_signature: Signature of the post author for messages in
+            channels.
+        :param forward_signature: For messages forwarded from channels,
+            signature of the post author if present.
 
         """
         self.id = message_id
@@ -333,6 +345,8 @@ class Message(_Content):
         self.channel_chat_created = channel_chat_created
         self.migrate_to_chat_id = migrate_to_chat_id
         self.migrate_from_chat_id = migrate_from_chat_id
+        self.author_signature = author_signature
+        self.forward_signature = forward_signature
         if from_:
             self.from_user = User(**from_)
         if forward_from:

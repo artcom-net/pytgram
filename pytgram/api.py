@@ -1415,3 +1415,16 @@ class TelegramBot(object):
 
         """
         pass
+
+    @_api_request(Chat)
+    def get_chat(self, *, chat_id):
+        """Use this method to get up to date information about the chat
+        (current name of the user for one-on-one conversations, current
+        username of a user, group or channel, etc.). Returns a Chat object on
+        success.
+
+        :param chat_id: Unique identifier for the target chat or username of t
+        he target supergroup or channel (in the format @channelusername)
+
+        """
+        pass
