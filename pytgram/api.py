@@ -631,7 +631,7 @@ class TelegramBot(object):
         pass
 
     @_api_request(return_type=Message)
-    def send_location(self, *, chat_id, latitude, longitude,
+    def send_location(self, *, chat_id, latitude, longitude, live_period=None,
                       disable_notification=None, reply_to_message_id=None,
                       reply_markup=None):
         """Use this method to send point on the map.
@@ -640,6 +640,8 @@ class TelegramBot(object):
             the target channel (in the format @channelusername).
         :param latitude: Latitude of location.
         :param longitude: Longitude of location.
+        :param live_period: Period in seconds for which the location will be
+            updated (see Live Locations, should be between 60 and 86400.
         :param disable_notification: Sends the message silently. iOS users will
             not receive a notification, Android users will receive a
             notification with no sound.
@@ -932,6 +934,52 @@ class TelegramBot(object):
         :param reply_markup: InlineKeyboardMarkup.
         :return:  If edited message is sent by the bot, the edited Message is
             returned, otherwise True is returned.
+
+        """
+        pass
+
+    @_api_request(return_type=Message)
+    def edit_message_live_location(self, *, latitude, longitude, chat_id=None,
+                                   message_id=None, inline_message_id=None,
+                                   reply_markup=None):
+        """Use this method to edit live location messages sent by the bot or
+        via the bot (for inline bots). A location can be edited until its
+        live_period expires or editing is explicitly disabled by a call to
+        stop_message_live_location. On success, if the edited message was sent
+        by the bot, the edited Message is returned, otherwise True is returned.
+
+        :param latitude: Latitude of new location.
+        :param longitude: Longitude of new location.
+        :param chat_id: Required if inline_message_id is not specified. Unique
+            identifier for the target chat or username of the target channel
+            (in the format @channelusername).
+        :param message_id: Required if inline_message_id is not specified.
+            Identifier of the sent message.
+        :param inline_message_id: Required if chat_id and message_id are not
+            specified. Identifier of the inline message.
+        :param reply_markup: A JSON-serialized object for a new inline
+            keyboard.
+
+        """
+        pass
+
+    @_api_request(return_type=Message)
+    def stop_message_live_location(self, *, chat_id=None, message_id=None,
+                                   inline_message_id=None, reply_markup=None):
+        """Use this method to stop updating a live location message sent by the
+        bot or via the bot (for inline bots) before live_period expires. On
+        success, if the message was sent by the bot, the sent Message is
+        returned, otherwise True is returned.
+
+        :param chat_id: Required if inline_message_id is not specified. Unique
+            identifier for the target chat or username of the target channel
+            (in the format @channelusername).
+        :param message_id: Required if inline_message_id is not specified.
+            Identifier of the sent message.
+        :param inline_message_id: Required if chat_id and message_id are not
+            specified. Identifier of the inline message.
+        :param reply_markup: A JSON-serialized object for a new inline
+            keyboard.
 
         """
         pass
@@ -1250,6 +1298,36 @@ class TelegramBot(object):
         pass
 
     @_api_request()
+    def set_chat_sticker_set(self, *, chat_id, sticker_set_name):
+        """Use this method to set a new group sticker set for a supergroup.
+        The bot must be an administrator in the chat for this to work and must
+        have the appropriate admin rights. Use the field can_set_sticker_set
+        optionally returned in getChat requests to check if the bot can use
+        this method. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target supergroup (in the format @supergroupusername).
+        :param sticker_set_name: Name of the sticker set to be set as the group
+            sticker set.
+
+        """
+        pass
+
+    @_api_request()
+    def delete_chat_sticker_set(self, *, chat_id):
+        """Use this method to delete a group sticker set from a supergroup.
+        The bot must be an administrator in the chat for this to work and must
+        have the appropriate admin rights. Use the field can_set_sticker_set
+        optionally returned in getChat requests to check if the bot can use
+        this method. Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of
+            the target supergroup (in the format @supergroupusername).
+
+        """
+        pass
+
+    @_api_request()
     def delete_chat_photo(self, *, chat_id):
         """Use this method to delete a chat photo. Photos can't be changed for
         private chats. The bot must be an administrator in the chat for this to
@@ -1416,7 +1494,7 @@ class TelegramBot(object):
         """
         pass
 
-    @_api_request(Chat)
+    @_api_request(return_type=Chat)
     def get_chat(self, *, chat_id):
         """Use this method to get up to date information about the chat
         (current name of the user for one-on-one conversations, current

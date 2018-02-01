@@ -253,7 +253,7 @@ class Message(_Content):
                  channel_chat_created=None, migrate_to_chat_id=None,
                  migrate_from_chat_id=None, pinned_message=None, invoice=None,
                  successful_payment=None, author_signature=None,
-                 forward_signature=None):
+                 forward_signature=None, caption_entities=None):
         """Initial instance.
 
         :param message_id: Unique message identifier inside this chat.
@@ -329,6 +329,9 @@ class Message(_Content):
             channels.
         :param forward_signature: For messages forwarded from channels,
             signature of the post author if present.
+        :param caption_entities: For messages with a caption, special entities
+            like usernames, URLs, bot commands, etc. that appear in the
+            caption.
 
         """
         self.id = message_id
@@ -407,6 +410,8 @@ class Message(_Content):
             self.new_chat_photo = PhotoSize.from_list(new_chat_photo)
         if pinned_message:
             self.pinned_message = Message(**pinned_message)
+        if caption_entities:
+            self.caption_entities = MessageEntity.from_list(caption_entities)
 
     def __str__(self):
         return '{}(id:{id}, from:{from_user}, ' \
